@@ -1,0 +1,95 @@
+# ═══════════════════════════════════════════════════════════════
+# ARCHE — Configurações Centrais do Modelo
+# Todos os parâmetros do pipeline ficam aqui.
+# Nunca hardcode valores no código — sempre referencie este arquivo.
+# ═══════════════════════════════════════════════════════════════
+
+# ─── Universo de Ativos ────────────────────────────────────────
+universe:
+  min_daily_volume_brl: 5_000_000      # filtro de liquidez: R$ 5M/dia mínimo
+  min_history_days: 252                # mínimo de dias para incluir ativo no universo
+  volume_lookback_days: 63             # janela para calcular volume médio (~3 meses)
+  start_date: "2012-01-01"            # início do histórico completo
+  end_date: "2024-12-31"              # fim do histórico (out-of-sample termina aqui)
+
+# ─── Grafo / MST ───────────────────────────────────────────────
+graph:
+  correlation_window_days: 60         # janela rolante para calcular correlações
+  correlation_min_periods: 40         # mínimo de observações válidas na janela
+  distance_metric: "sqrt_2_minus_corr"  # d(i,j) = √(2(1-ρ))
+  mst_extra_threshold: 0.55          # ξ — adiciona arestas com ρ > threshold além da MST
+  markov_alpha: 0.5                   # peso do self-loop nas distribuições de Markov
+                                      # 0 = sem self-loop, 1 = só self-loop
+
+# ─── Curvatura ─────────────────────────────────────────────────
+curvature:
+  # Ollivier-Ricci
+  wasserstein_solver: "emd"          # "emd" (exato) ou "sinkhorn" (rápido, aproximado)
+  sinkhorn_reg: 0.1                  # regularização Sinkhorn (só se solver="sinkhorn")
+  max_lp_time_seconds: 30            # timeout por LP — se exceder, usa Sinkhorn
+  # Nodal (GDS)
+  kappa_history_days: 252            # janela para calcular σᵢ do histórico de κᵢ
+  gds_threshold_sigma: 2.0          # z — limiar de Δκᵢ para gerar sinal (±z·σᵢ)
+  # Ricci Flow (Fase 2)
+  flow_steps: 50
+  flow_dt: 0.01
+
+# ─── Sinal / IC ────────────────────────────────────────────────
+signal:
+  ic_horizons: [1, 5, 10, 21]        # horizontes para calcular IC (dias úteis)
+  # Critérios make-or-break (pré-definidos ANTES de ver os dados)
+  ic_min_mean: 0.03                  # IC médio mínimo em pelo menos 2 horizontes
+  ic_min_ir: 0.30                    # IC_IR (IC / std(IC)) mínimo
+  ic_min_pct_positive: 0.55         # % de períodos com IC > 0
+
+# ─── Portfólio ─────────────────────────────────────────────────
+portfolio:
+  n_quantiles: 5                     # número de quintis (long = Q1, short = Q5)
+  rebalance_frequency: "weekly"      # "daily" | "weekly" | "monthly"
+  max_weight_single_asset: 0.15      # peso máximo por ativo (diversificação)
+  long_short_ratio: 1.0              # 1.0 = market-neutral
+
+# ─── Custos de Transação (diferenciados por grupo) ─────────────
+costs:
+  large_caps:                        # VALE, PETR, ITUB, BBDC, ABEV, etc.
+    tickers: ["VALE3", "PETR4", "ITUB4", "BBDC4", "ABEV3",
+              "WEGE3", "RENT3", "BBAS3", "SUZB3", "ELET3"]
+    commission_bps: 8
+    spread_bps: 5
+  mid_caps:                          # restante do Ibovespa
+    commission_bps: 10
+    spread_bps: 12
+  small_liquid:                      # fora do Ibovespa, volume > R$5M
+    commission_bps: 12
+    spread_bps: 20
+  short_borrow_annual_pct: 3.0      # custo de aluguel médio B3
+
+# ─── Backtest Walk-Forward ─────────────────────────────────────
+backtest:
+  train_years: 3
+  test_months: 6
+  step_months: 3                     # avanço da janela a cada iteração
+  in_sample_end: "2018-12-31"       # última data do treino inicial
+  out_of_sample_start: "2019-01-01" # início do teste out-of-sample
+
+# ─── Validação ─────────────────────────────────────────────────
+validation:
+  ff_factors: ["Rm_minus_Rf", "SMB", "HML", "WML"]
+  alpha_min_tstat: 2.0              # t-stat mínimo para alpha ser significativo
+  granger_max_pvalue: 0.05         # p-value máximo para causalidade de Granger
+  granger_max_lags: 10              # lags testados no teste de Granger
+  permutation_n: 1000              # número de permutações no permutation test
+  concordance_min_corr: 0.6        # correlação mínima Ollivier vs Forman
+
+# ─── Infraestrutura ────────────────────────────────────────────
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_cache: "data/cache"
+  reports: "reports"
+
+logging:
+  level: "INFO"                      # DEBUG | INFO | WARNING | ERROR
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}"
+  file: "logs/arche.log"
+  rotation: "10 MB"
