@@ -48,33 +48,53 @@ from .config import get, PROJECT_ROOT
 RAW_B3    = PROJECT_ROOT / "data" / "raw" / "b3"
 PROCESSED = PROJECT_ROOT / "data" / "processed"
 
-# ─── Universo padrão (Ibovespa + ativos líquidos históricos) ──
-# Lista de tickers para coleta — expandir conforme necessidade
-IBOVESPA_UNIVERSE = [
+# ─── Universo IBrX-100 (B3, carteira teórica mai/2024) ────────
+# Fonte: https://sistemaswebb3-listados.b3.com.br/indexPage/day/IBRX100
+# Cobertura: ~70-75% do volume total da B3, muito maior cross-section que Ibovespa
+IBRX100_UNIVERSE = [
     # Commodities & Energia
-    "VALE3", "VALE5", "PETR4", "PETR3", "PRIO3", "CSAN3",
-    # Financeiro
-    "ITUB4", "ITUB3", "BBDC4", "BBDC3", "BBAS3", "SANB11",
-    "BPAC11", "IRBR3", "SULA11", "B3SA3",
-    # Consumo & Varejo
-    "ABEV3", "BRFS3", "JBSS3", "MRFG3", "BEEF3",
-    "MGLU3", "LREN3", "AMER3", "LWSA3",
-    # Industrial & Infraestrutura
+    "VALE3", "PETR4", "PETR3", "PRIO3", "CSAN3", "UGPA3", "VBBR3",
+    "RECV3", "RRRP3",
+    # Financeiro — Bancos
+    "ITUB4", "BBDC4", "BBAS3", "SANB11", "BPAC11", "BRSR6",
+    # Financeiro — Seguros & Mercado
+    "B3SA3", "IRBR3", "BBSE3", "CXSE3",
+    # Financeiro — Outros
+    "BRAP4", "BRKM5",
+    # Consumo Básico
+    "ABEV3", "BRFS3", "JBSS3", "MRFG3", "BEEF3", "SMTO3",
+    "MDIA3", "NTCO3",
+    # Consumo Discricionário & Varejo
+    "MGLU3", "LREN3", "ARZZ3", "SOMA3", "VIVA3",
+    "GMAT3", "PETZ3",
+    # Industrial & Transporte
     "WEGE3", "EMBR3", "RAIL3", "CCRO3", "ECOR3",
-    # Materiais
-    "SUZB3", "KLBN11", "DURA4",
-    # Utilidades
+    "AZUL4", "GOLL4", "RAIZ4",
+    # Materiais & Papel
+    "SUZB3", "KLBN11", "DXCO3", "CSNA3", "GGBR4", "USIM5",
+    # Utilidades — Energia Elétrica
     "ELET3", "ELET6", "CPFE3", "CMIG4", "ENGI11", "EGIE3",
-    "SBSP3", "SAPR11",
+    "ENEV3", "EQTL3", "TAEE11", "CPLE6",
+    # Utilidades — Saneamento & Gás
+    "SBSP3", "SAPR11", "CSMG3",
+    # Telecomunicações
+    "VIVT3", "TIMS3",
     # Saúde
-    "RDOR3", "HAPV3", "GNDI3", "FLRY3",
+    "RDOR3", "HAPV3", "FLRY3", "DASA3", "GNDI3", "PARD3",
     # Tecnologia & Serviços
-    "TOTS3", "RENT3", "VBBR3",
-    # Imobiliário
-    "CYRN3", "MRVE3", "EVEN3",
-    # Papel & Celulose (SUZB3 já incluída em Materiais acima)
-    "RANI3",
+    "TOTS3", "LWSA3", "CASH3", "INTB3",
+    # Imobiliário — Incorporadoras
+    "CYRE3", "MRVE3", "EVEN3", "DIRR3", "PLPL3",
+    # Imobiliário — FIIs (via ações ON)
+    "HYPE3", "MULT3",
+    # Logística & Infraestrutura
+    "AURE3", "ANIM3",
+    # Agro
+    "SLCE3", "AGRO3", "TTEN3",
 ]
+
+# Manter alias para compatibilidade retroativa
+IBOVESPA_UNIVERSE = IBRX100_UNIVERSE
 
 
 class B3DataCollector:
@@ -198,7 +218,9 @@ class B3DataCollector:
                 continue
 
             try:
-                data     = pd.to_datetime(line[2:10], format="%Y%m%d")
+                data_dt  = pd.to_datetime(line[2:10], format="%Y%m%d", errors="coerce")
+                if pd.isna(data_dt):
+                    continue
                 ticker   = line[12:24].strip()
                 fechamento = float(line[108:121]) / 100.0  # 2 decimais implícitos
                 volume   = float(line[152:170]) / 100.0
@@ -208,7 +230,7 @@ class B3DataCollector:
                     continue
 
                 records.append({
-                    "Date":    data,
+                    "Date":    data_dt,
                     "ticker":  ticker,
                     "close":   fechamento,
                     "volume":  volume,
@@ -437,7 +459,7 @@ class B3DataCollector:
         -------
         pd.DataFrame pronto para ser salvo em data/raw/b3/prices_b3.parquet
         """
-        tickers = tickers or IBOVESPA_UNIVERSE
+        tickers = tickers or IBRX100_UNIVERSE
         # Remover duplicatas mantendo ordem
         tickers = list(dict.fromkeys(tickers))
 
@@ -578,7 +600,7 @@ if __name__ == "__main__":
     collector = B3DataCollector()
 
     prices = collector.collect_all(
-        tickers=IBOVESPA_UNIVERSE,
+        tickers=IBRX100_UNIVERSE,
         use_b3_official=True,
         use_yfinance=True,
         brapi_token=os.getenv("BRAPI_TOKEN"),

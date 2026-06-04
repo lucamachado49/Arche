@@ -11,5 +11,10 @@ from .signal import ICAnalyzer, SignalGenerator
 # Sprint 5 — Portfólio e Backtest
 from .portfolio import PortfolioConstructor, TransactionCostModel
 from .backtest import WalkForwardBacktest, PerformanceMetrics
-# Sprint 6 — Validação
-from .validation import FamaFrenchAnalyzer, GrangerCausalityTest, PermutationTest
+# Sprint 6 — Validação (importação lazy: statsmodels pode ter restrição de DLL no Windows)
+try:
+    from .validation import FamaFrenchAnalyzer, GrangerCausalityTest, PermutationTest
+except ImportError as _e:
+    import warnings
+    warnings.warn(f"Módulos de validação não disponíveis: {_e}", ImportWarning, stacklevel=2)
+

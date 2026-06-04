@@ -72,6 +72,23 @@ backtest:
   in_sample_end: "2018-12-31"       # última data do treino inicial
   out_of_sample_start: "2019-01-01" # início do teste out-of-sample
 
+# ─── Transfer Learning (S&P 500 → Ibovespa) ───────────────────
+# Fase 2: usa o S&P como amostra de REPLICAÇÃO da lei GDS→retorno.
+# A geometria é SEMPRE calculada dentro de cada mercado (nunca se
+# mistura ativo BR e US no mesmo grafo). O que transfere é a lei
+# adimensional, não a curvatura bruta. Ver src/transfer/.
+transfer:
+  discovery_market: "US"             # mercado de calibração (alto poder)
+  confirm_market: "BR"               # mercado de confirmação out-of-sample
+  sp500_max_tickers: 200             # top-N por liquidez (200 já triplica o cross-section
+                                     # do Ibov e mantém a curvatura computável)
+  sp500_tickers_url: "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+  non_overlapping: true              # amostra datas espaçadas ≥ h dias úteis
+                                     # (evita autocorrelação por retornos sobrepostos)
+  ic_horizons: [1, 5, 10, 21]        # horizontes testados (dias úteis)
+  permutation_n: 1000                # permutações no teste estratificado
+  min_names_per_date: 5              # mínimo de ativos para um IC cross-seccional válido
+
 # ─── Validação ─────────────────────────────────────────────────
 validation:
   ff_factors: ["Rm_minus_Rf", "SMB", "HML", "WML"]

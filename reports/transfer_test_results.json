@@ -1,0 +1,184 @@
+{
+  "replication": {
+    "discovery_market": "US",
+    "confirm_market": "BR",
+    "h_star": 21,
+    "discovery": {
+      "ic_mean": -0.00791462830191365,
+      "ic_ir": -0.03402314452268513,
+      "t_nw": -0.46003446991390584,
+      "n_dates": 119
+    },
+    "confirmation": {
+      "ic_mean": 0.043496541454669434,
+      "ic_ir": 0.31485343478729455,
+      "t_nw": 4.735180525116624,
+      "n_dates": 119
+    },
+    "confirmation_perm_p": 0.001,
+    "same_sign": false,
+    "passed": false
+  },
+  "by_horizon": {
+    "1": {
+      "meta_analysis": {
+        "horizon": 1,
+        "ic_pooled": 0.0016351578448634203,
+        "z_stat": 0.36095933265326124,
+        "p_value": 0.7181298482356508,
+        "n_observations": 1153,
+        "per_market": {
+          "BR": {
+            "ic_pooled": 0.00025287423419381657,
+            "z_stat": 0.04869388800612388,
+            "p_value": 0.9611632467640662,
+            "n_dates": 568,
+            "mean_n_assets": 68.28169014084507
+          },
+          "US": {
+            "ic_pooled": 0.006034668030010171,
+            "z_stat": 0.6513608009051133,
+            "p_value": 0.5148136083572705,
+            "n_dates": 585,
+            "mean_n_assets": 22.914529914529915
+          }
+        },
+        "passed": false
+      },
+      "permutation": {
+        "horizon": 1,
+        "ic_observed": 0.0015329962282757336,
+        "ic_null_mean": -0.00025120586898721135,
+        "ic_null_std": 0.004733791263621605,
+        "p_value": 0.741,
+        "z_score": 0.3769076408109162,
+        "n_permutations": 1000,
+        "markets": [
+          "BR",
+          "US"
+        ],
+        "passed": false
+      }
+    },
+    "5": {
+      "meta_analysis": {
+        "horizon": 5,
+        "ic_pooled": 0.005913706482559098,
+        "z_stat": 1.2217779873418535,
+        "p_value": 0.2217915950635848,
+        "n_observations": 1006,
+        "per_market": {
+          "BR": {
+            "ic_pooled": 0.007473894994979693,
+            "z_stat": 1.3496168763507452,
+            "p_value": 0.17713890794982334,
+            "n_dates": 500,
+            "mean_n_assets": 68.214
+          },
+          "US": {
+            "ic_pooled": 0.0008646131662743522,
+            "z_stat": 0.0867892693674732,
+            "p_value": 0.9308390172425729,
+            "n_dates": 506,
+            "mean_n_assets": 22.91304347826087
+          }
+        },
+        "passed": false
+      },
+      "permutation": {
+        "horizon": 5,
+        "ic_observed": 0.005745869429335918,
+        "ic_null_mean": -4.68889258157144e-05,
+        "ic_null_std": 0.004934004499157053,
+        "p_value": 0.236,
+        "z_score": 1.1740480488295648,
+        "n_permutations": 1000,
+        "markets": [
+          "BR",
+          "US"
+        ],
+        "passed": false
+      }
+    },
+    "10": {
+      "meta_analysis": {
+        "horizon": 10,
+        "ic_pooled": 0.00920462402608225,
+        "z_stat": 1.3553078140713204,
+        "p_value": 0.17531950644279937,
+        "n_observations": 509,
+        "per_market": {
+          "BR": {
+            "ic_pooled": 0.013126362849327123,
+            "z_stat": 1.6923801584274754,
+            "p_value": 0.09057351301468697,
+            "n_dates": 255,
+            "mean_n_assets": 68.18039215686275
+          },
+          "US": {
+            "ic_pooled": -0.0036838759092090493,
+            "z_stat": -0.26199703093917187,
+            "p_value": 0.793323731229453,
+            "n_dates": 254,
+            "mean_n_assets": 22.913385826771652
+          }
+        },
+        "passed": false
+      },
+      "permutation": {
+        "horizon": 10,
+        "ic_observed": 0.008639504053390416,
+        "ic_null_mean": -0.00032445929238738614,
+        "ic_null_std": 0.007165230184351586,
+        "p_value": 0.217,
+        "z_score": 1.2510363400961684,
+        "n_permutations": 1000,
+        "markets": [
+          "BR",
+          "US"
+        ],
+        "passed": false
+      }
+    },
+    "21": {
+      "meta_analysis": {
+        "horizon": 21,
+        "ic_pooled": 0.03354050292745427,
+        "z_stat": 3.3747135526169907,
+        "p_value": 0.0007389256000330442,
+        "n_observations": 238,
+        "per_market": {
+          "BR": {
+            "ic_pooled": 0.04660626065998091,
+            "z_stat": 4.104854354954417,
+            "p_value": 4.045696877363773e-05,
+            "n_dates": 119,
+            "mean_n_assets": 68.09243697478992
+          },
+          "US": {
+            "ic_pooled": -0.009219477488072624,
+            "z_stat": -0.4488412740881198,
+            "p_value": 0.6535461621203348,
+            "n_dates": 119,
+            "mean_n_assets": 22.915966386554622
+          }
+        },
+        "passed": true
+      },
+      "permutation": {
+        "horizon": 21,
+        "ic_observed": 0.03208931950201946,
+        "ic_null_mean": -0.0009739356761642276,
+        "ic_null_std": 0.010337590839393868,
+        "p_value": 0.003,
+        "z_score": 3.1983520814335415,
+        "n_permutations": 1000,
+        "markets": [
+          "BR",
+          "US"
+        ],
+        "passed": true
+      }
+    }
+  }
+}
