@@ -146,8 +146,13 @@ class WalkForwardBacktest:
                 logger.warning(f"Fold {fold_id}: pesos vazios.")
                 continue
 
-            # 3. Calcular retornos brutos
+            # 3. Calcular retornos brutos — RESTRITOS à janela de teste.
+            # Sem o slice, o ffill dos pesos vazaria a posição do último
+            # rebalanceamento do fold até o fim da amostra (look-ahead de
+            # holding). A combinação posterior (keep="last") garante que
+            # cada fold contribua apenas com seus ~step_months frescos.
             gross_returns = self._compute_gross_returns(returns, weights)
+            gross_returns = gross_returns.loc[test_start:test_end]
 
             if gross_returns.empty:
                 continue
@@ -197,8 +202,11 @@ class WalkForwardBacktest:
         """
         Consolida os retornos de todos os folds em uma série contínua.
 
-        Como os folds de teste não se sobrepõem (step = test/2),
-        podemos concatenar os retornos de teste diretamente.
+        Os folds de teste se SOBREPÕEM (step=3m < teste=6m). Para evitar
+        contagem dupla, em datas cobertas por mais de um fold mantemos o
+        retorno do fold MAIS RECENTE (keep="last") — o de treino mais novo
+        e ainda look-ahead-safe. Na prática, cada fold contribui apenas
+        com seus primeiros ~step_months de teste.
         """
         series = []
         for fold in results:
@@ -210,7 +218,7 @@ class WalkForwardBacktest:
 
         combined = pd.concat(series).sort_index()
         combined.name = "portfolio_returns"
-        return combined[~combined.index.duplicated(keep="first")]
+        return combined[~combined.index.duplicated(keep="last")]
 
     def get_fold_summary(self, results: list[WalkForwardFold]) -> pd.DataFrame:
         """

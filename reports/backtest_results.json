@@ -1,0 +1,47 @@
+{
+  "config": {
+    "prices_file": "prices_b3.parquet",
+    "n_assets": 87,
+    "n_folds": 24,
+    "train_years": 3,
+    "test_months": 6,
+    "step_months": 3,
+    "oos_start": "2019-01-01"
+  },
+  "net": {
+    "annualized_return": -0.46760700403928956,
+    "annualized_vol": 0.15695281591635285,
+    "sharpe_ratio": -3.932473009960793,
+    "sortino_ratio": -3.9819988200067415,
+    "calmar_ratio": -0.4790466617838047,
+    "max_drawdown": -0.9761199510254016,
+    "win_rate": 0.3884795713328868,
+    "var_95": -0.01892831145018058,
+    "cvar_95": -0.025847899119732738,
+    "skewness": -0.37778877839590075,
+    "kurtosis": 2.3937565833542394,
+    "t_stat_return": -9.57183897701644,
+    "n_obs": 1493,
+    "start": "2019-01-02",
+    "end": "2024-12-30",
+    "information_ratio": -1.9963301259794157
+  },
+  "gross": {
+    "annualized_return": -0.09933918692895705,
+    "annualized_vol": 0.14273553090866375,
+    "sharpe_ratio": -0.6613566327414151,
+    "sortino_ratio": -0.9496013248006143,
+    "calmar_ratio": -0.18583523340794733,
+    "max_drawdown": -0.5345551815294718,
+    "win_rate": 0.4594775619557937,
+    "var_95": -0.014871803373933788,
+    "cvar_95": -0.021602619265291396,
+    "skewness": -0.31829922582873077,
+    "kurtosis": 3.729731428796284,
+    "t_stat_return": -1.6097756243839396,
+    "n_obs": 1493,
+    "start": "2019-01-02",
+    "end": "2024-12-30",
+    "information_ratio": -0.3833022356722362
+  }
+}

@@ -19,6 +19,12 @@ Três testes complementares, do mais ao menos rigoroso para a banca:
   3. stratified_permutation_test() — extensão do permutation test do projeto:
      permuta o GDS DENTRO de cada mercado e pooled. Assumption-light.
 
+  4. conditional_event_test() — teste DIRETO da hipótese do README:
+         E[r(t+1:t+h) | GDS < −z·σ]  >  E[r(t+1:t+h)] + α
+     Mede o retorno forward médio dos ativos em evento de colapso de
+     curvatura vs a média cross-seccional da data, pooled entre mercados,
+     com inferência por permutação estratificada (one-sided, direcional).
+
 LOOK-AHEAD SAFETY
 ─────────────────
 O IC usa retorno forward r(t+1:t+h), calculado SÓ na análise ex-post.
@@ -111,6 +117,44 @@ class _MarketICCache:
                 ics.append(res[0])
                 ns.append(res[1])
         return np.asarray(ics), np.asarray(ns, dtype=float)
+
+    def event_panel(
+        self,
+        threshold_z: float,
+        min_events: int = 2,
+        perm: Optional[np.ndarray] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Excesso de retorno condicional por data:
+
+            stat(t) = mean(fwd[GDS < −z]) − mean(fwd[todos válidos])
+
+        Demean cross-seccional remove o movimento de mercado da data —
+        o que sobra é o excesso atribuível ao evento de colapso de curvatura.
+        Retorna (stats, n_events) sobre as datas com ≥ min_events eventos.
+        """
+        stats_, n_events_ = [], []
+        for pos in range(self.n_dates):
+            fwd = self.fwd_rows[pos]
+            if fwd is None:
+                continue
+            src = pos if perm is None else perm[pos]
+            g = self.gds_rows[src]
+            common = g.index.intersection(fwd.index)
+            if len(common) < self.min_names:
+                continue
+            x = g.loc[common].to_numpy()
+            y = fwd.loc[common].to_numpy()
+            m = ~(np.isnan(x) | np.isnan(y))
+            if m.sum() < self.min_names:
+                continue
+            x, y = x[m], y[m]
+            events = x < -threshold_z
+            if events.sum() < min_events:
+                continue
+            stats_.append(float(y[events].mean() - y.mean()))
+            n_events_.append(int(events.sum()))
+        return np.asarray(stats_), np.asarray(n_events_, dtype=float)
 
 
 def _subsample_nonoverlapping(
@@ -381,14 +425,7 @@ class CrossMarketHypothesisTest:
         rng = np.random.default_rng(seed)
 
         # Pré-computar caches por mercado (forward returns fixos)
-        caches = {}
-        for market, (gds, returns) in panels.items():
-            dates = gds.index
-            if self.non_overlapping:
-                dates = _subsample_nonoverlapping(dates, returns.index, horizon)
-            caches[market] = _MarketICCache(
-                gds, returns, horizon, self.min_names, dates=dates
-            )
+        caches = self._build_caches(panels, horizon)
 
         def pooled_stat(perms: dict[str, Optional[np.ndarray]]) -> float:
             ics_all, ns_all = [], []
@@ -446,6 +483,125 @@ class CrossMarketHypothesisTest:
         return result
 
     # ──────────────────────────────────────────────────────────────
+    # 4. TESTE CONDICIONAL DE EVENTO (forma direta do README)
+    # ──────────────────────────────────────────────────────────────
+    def conditional_event_test(
+        self,
+        panels: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
+        horizon: int = 5,
+        threshold_z: Optional[float] = None,
+        min_events: int = 2,
+        n_permutations: Optional[int] = None,
+        n_jobs: int = -1,
+        seed: int = 42,
+    ) -> dict:
+        """
+        Teste direto da hipótese central do projeto:
+
+            E[r_i(t+1:t+h) | GDS_i(t) < −z·σ]  >  E[r_i(t+1:t+h)] + α,  α > 0
+
+        Estatística observada: média (sobre datas e mercados) do excesso de
+        retorno dos ativos em evento vs a média cross-seccional da data.
+
+        Inferência: permutação estratificada within-market das linhas de GDS.
+        Por ser uma hipótese DIRECIONAL (α > 0), o p-value principal é
+        one-sided: P(stat_perm ≥ stat_obs). O two-sided é reportado junto.
+        """
+        z = threshold_z if threshold_z is not None else get(
+            "curvature", "gds_threshold_sigma", 2.0
+        )
+        n_perm = n_permutations or self.n_permutations
+        rng = np.random.default_rng(seed)
+
+        caches = self._build_caches(panels, horizon)
+
+        def pooled_event_stat(perms: dict[str, Optional[np.ndarray]]) -> tuple[float, float, int]:
+            stats_all, nev_all = [], []
+            for market, cache in caches.items():
+                s, ne = cache.event_panel(z, min_events, perms.get(market))
+                stats_all.append(s)
+                nev_all.append(ne)
+            stats_all = np.concatenate(stats_all) if stats_all else np.array([])
+            nev_all = np.concatenate(nev_all) if nev_all else np.array([])
+            if len(stats_all) == 0:
+                return np.nan, 0.0, 0
+            return float(stats_all.mean()), float(nev_all.mean()), int(len(stats_all))
+
+        alpha_obs, mean_events, n_event_dates = pooled_event_stat({m: None for m in caches})
+
+        if n_event_dates < 10 or np.isnan(alpha_obs):
+            logger.warning(
+                f"[Evento condicional] h={horizon}, z={z}: apenas {n_event_dates} "
+                f"datas com ≥{min_events} eventos — sem poder estatístico. "
+                f"Considere reduzir threshold_z."
+            )
+            return {
+                "horizon": horizon, "threshold_z": z, "alpha_obs": alpha_obs,
+                "n_event_dates": n_event_dates, "p_one_sided": np.nan,
+                "p_two_sided": np.nan, "passed": False,
+            }
+
+        seeds = rng.integers(0, 2**31, size=n_perm)
+
+        def one_perm(s: int) -> float:
+            r = np.random.default_rng(s)
+            perms = {m: r.permutation(c.n_dates) for m, c in caches.items()}
+            return pooled_event_stat(perms)[0]
+
+        if n_jobs != 1:
+            null = Parallel(n_jobs=n_jobs, prefer="threads")(
+                delayed(one_perm)(int(s)) for s in seeds
+            )
+        else:
+            null = [one_perm(int(s)) for s in seeds]
+
+        null = np.array([x for x in null if not np.isnan(x)])
+        p_one = float((null >= alpha_obs).mean())
+        p_two = float((np.abs(null) >= abs(alpha_obs)).mean())
+
+        result = {
+            "horizon": horizon,
+            "threshold_z": float(z),
+            "alpha_obs": float(alpha_obs),
+            "alpha_obs_bps": float(alpha_obs * 1e4),
+            "mean_events_per_date": float(mean_events),
+            "n_event_dates": int(n_event_dates),
+            "null_mean": float(null.mean()),
+            "null_std": float(null.std()),
+            "p_one_sided": p_one,
+            "p_two_sided": p_two,
+            "n_permutations": int(len(null)),
+            "markets": list(caches.keys()),
+            "passed": bool(p_one < 0.05 and alpha_obs > 0),
+        }
+
+        status = "✅" if result["passed"] else "❌"
+        logger.info(
+            f"{status} [Evento condicional] h={horizon}, z={z}: "
+            f"α={alpha_obs*1e4:+.1f} bps/{horizon}d sobre {n_event_dates} datas "
+            f"(p_1s={p_one:.4f}, p_2s={p_two:.4f})"
+        )
+        return result
+
+    # ──────────────────────────────────────────────────────────────
+    # AUXILIAR: caches por mercado (forward returns pré-computados)
+    # ──────────────────────────────────────────────────────────────
+    def _build_caches(
+        self,
+        panels: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
+        horizon: int,
+    ) -> dict[str, _MarketICCache]:
+        caches = {}
+        for market, (gds, returns) in panels.items():
+            dates = gds.index
+            if self.non_overlapping:
+                dates = _subsample_nonoverlapping(dates, returns.index, horizon)
+            caches[market] = _MarketICCache(
+                gds, returns, horizon, self.min_names, dates=dates
+            )
+        return caches
+
+    # ──────────────────────────────────────────────────────────────
     # AUXILIAR: estatísticas de IC de um único mercado
     # ──────────────────────────────────────────────────────────────
     def _single_market_ic_stats(
@@ -492,5 +648,6 @@ class CrossMarketHypothesisTest:
             out["by_horizon"][h] = {
                 "meta_analysis": self.pooled_ic_meta_analysis(panels, horizon=h),
                 "permutation": self.stratified_permutation_test(panels, horizon=h),
+                "conditional_event": self.conditional_event_test(panels, horizon=h),
             }
         return out

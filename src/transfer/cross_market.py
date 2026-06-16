@@ -73,6 +73,8 @@ class CrossMarketGDS:
         logger.info(f"[{market}] Computando GDS na geometria própria do mercado...")
 
         cache_dir = (self.cache_root / market) if use_cache else None
+        if cache_dir is not None:
+            self._invalidate_stale_cache(market, cache_dir, prices)
         generator = SignalGenerator(cache_dir=cache_dir)
 
         # O SignalGenerator calcula retornos internamente para a curvatura,
@@ -91,6 +93,46 @@ class CrossMarketGDS:
             f"{gds_ts.shape[1]} ativos no cross-section"
         )
         return gds_ts, returns
+
+    def _invalidate_stale_cache(
+        self,
+        market: str,
+        cache_dir: Path,
+        prices: pd.DataFrame,
+        min_coverage: float = 0.5,
+    ) -> None:
+        """
+        Invalida cache de GDS incompatível com o universo de preços atual.
+
+        Cenário real que motivou esta guarda: um run antigo com a lista de
+        fallback do S&P (60 nomes) deixou cache que um run posterior com
+        200 nomes reutilizou silenciosamente — o teste rodou com a
+        interseção (~23 nomes), invalidando o braço US. Se as colunas do
+        cache cobrem menos que `min_coverage` do universo de preços,
+        apagamos o cache e forçamos recomputação.
+        """
+        gds_path = cache_dir / "gds_ts.parquet"
+        kappa_path = cache_dir / "kappa_ts.parquet"
+        if not gds_path.exists():
+            return
+        try:
+            cached_cols = set(pd.read_parquet(gds_path).columns)
+        except Exception as e:
+            logger.warning(f"[{market}] cache ilegível ({e}) — removendo.")
+            gds_path.unlink(missing_ok=True)
+            kappa_path.unlink(missing_ok=True)
+            return
+
+        price_cols = set(prices.columns)
+        coverage = len(cached_cols & price_cols) / max(1, len(price_cols))
+        if coverage < min_coverage:
+            logger.warning(
+                f"[{market}] cache cobre só {coverage:.0%} do universo atual "
+                f"({len(cached_cols)} colunas vs {len(price_cols)} preços) — "
+                f"invalidando e recomputando."
+            )
+            gds_path.unlink(missing_ok=True)
+            kappa_path.unlink(missing_ok=True)
 
     def compute_all(
         self,
