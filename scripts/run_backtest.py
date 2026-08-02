@@ -186,34 +186,36 @@ def main() -> None:
     # Risk-free (Selic) — opcional
     risk_free = try_load_risk_free()
 
-    # ── 4. Backtest walk-forward ──────────────────────────────────
+    # ── 4. Backtest contínuo (oficial; sem artefato de recompra/fold) ──
     engine = WalkForwardBacktest()
-    folds = engine.run(
+    combined = engine.run_continuous(
         returns=returns,
         gds_ts=gds_ts,
         prices=prices,
-        benchmark=benchmark,
-        risk_free=risk_free,
     )
 
-    if not folds:
-        logger.error("Nenhum fold concluído — verifique o período e o GDS.")
-        sys.exit(1)
-
     # ── 5. Consolidação ───────────────────────────────────────────
-    net_returns = engine.get_combined_returns(folds, net=True)
-    gross_returns = engine.get_combined_returns(folds, net=False)
+    net_returns = combined["net"]
+    gross_returns = combined["gross"]
+
+    if net_returns.empty:
+        logger.error("Série OOS vazia — verifique o período e o GDS.")
+        sys.exit(1)
 
     pm_net = PerformanceMetrics(net_returns, benchmark=benchmark, risk_free=risk_free)
     pm_gross = PerformanceMetrics(gross_returns, benchmark=benchmark, risk_free=risk_free)
-    fold_summary = engine.get_fold_summary(folds)
+    fold_summary = engine.fold_summary_from_series(net_returns)
 
     # ── 6. Saída ──────────────────────────────────────────────────
     results = {
         "config": {
             "prices_file": str(Path(args.prices).name),
             "n_assets": len(common),
-            "n_folds": len(folds),
+            "n_folds": int(len(fold_summary)),
+            "engine": "continuous",
+            "rebalance_frequency": engine.rebalance_frequency,
+            "gds_smoothing_span": engine.gds_smoothing_span,
+            "construction_method": engine.constructor.method,
             "train_years": engine.train_years,
             "test_months": engine.test_months,
             "step_months": engine.step_months,

@@ -12,3 +12,6 @@ env/
 # Arquivos de sistema
 .DS_Store
 Thumbs.db
+# Visual Studio / IDEs
+.vs/
+.pytest_cache/

@@ -12,9 +12,11 @@ onde:
   r_i(t→t+h): retorno acumulado de i entre t+1 e t+h
 
 IC ∈ [-1, 1]:
-  IC > 0  : GDS tem poder preditivo positivo (lembrar: a hipótese é GDS↓ → retorno↑,
-            então esperamos IC < 0 se GDS é positivo quando retorno é negativo.
-            ATENÇÃO: por convenção invertemos o sinal do GDS no portfólio — ver signal.py)
+  IC > 0  : GDS alto prevê retorno alto (relação medida em BR h=21).
+            O LADO do book é definido por signal.signal_sign no settings.yaml
+            (alpha_score = signal_sign · GDS), aplicado em PortfolioConstructor.
+            Com IC > 0 ⇒ signal_sign=+1 (long no GDS alto). Não há inversão
+            implícita escondida no pipeline — a convenção é única e explícita.
   |IC| > 0.05 : sinal economicamente significativo
   IC_IR > 0.5  : sinal consistente ao longo do tempo
 

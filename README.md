@@ -51,29 +51,32 @@ arche/
 pip install -r requirements.txt
 ```
 
-### 2. Configurar dados (Bloomberg)
-Exportar preços ajustados da B3 para `data/raw/b3/prices.csv`
+### 2. Dados
+Os preços ajustados da B3 (`data/raw/b3/prices_b3.parquet`) e o cache de
+curvatura/GDS (`data/cache/transfer/BR/`) já acompanham o repositório — o
+backtest roda em segundos reutilizando o cache. Para recomputar a curvatura
+de Ollivier-Ricci do zero (lento), use `--recompute-gds` no passo 4.
 
-Formato esperado:
-```
-Date,VALE3 BZ Equity,PETR4 BZ Equity,...
-2012-01-02,42.50,22.30,...
-```
-
-### 3. Rodar testes de look-ahead (OBRIGATÓRIO antes de qualquer resultado)
+### 3. Testes (look-ahead + sinal)
 ```bash
-pytest tests/test_lookahead.py -v
+pytest            # 34 testes; test_lookahead.py é o gate crítico anti-viés
 ```
 
-### 4. Sprint 1 — Dados
+### 4. Backtest walk-forward (pipeline completo)
 ```bash
-jupyter notebook notebooks/01_eda_universe.ipynb
+python -m scripts.run_backtest
 ```
+Gera em `reports/`: `backtest_results.json` (métricas líquidas de custo),
+`backtest_returns.csv` e `backtest_fold_summary.csv`.
 
-### 5. Sprint 2 — Grafo
+### 5. Bancadas de diagnóstico (auditoria de rigor)
 ```bash
-jupyter notebook notebooks/02_graph_construction.ipynb
+python -m scripts.diag_covid          # concentração do resultado em 2020
+python -m scripts.diag_orthogonality  # ortogonalidade a fatores conhecidos
+python -m scripts.diag_signal_recon   # reconstrução do sinal (Δκ 1 vs 4 semanas)
 ```
+Os scripts `scripts/diag_*.py` reproduzem os testes de mitigação de viés
+(concentração temporal, ortogonalidade, condicionamento por regime, custo).
 
 ---
 

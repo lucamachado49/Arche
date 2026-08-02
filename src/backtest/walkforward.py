@@ -78,6 +78,15 @@ class WalkForwardBacktest:
         self.step_months = cfg_bt.get("step_months", 3)
         self.oos_start   = pd.Timestamp(cfg_bt.get("out_of_sample_start", "2019-01-01"))
 
+        # Frequência de rebalanceamento. O GDS chega em alta frequência
+        # (semanal), mas só negociamos na frequência do horizonte do alpha
+        # (mensal). Ver _subsample_rebalance.
+        self.rebalance_frequency = get("portfolio", "rebalance_frequency", "monthly")
+
+        # Suavização EWMA causal do GDS (em períodos da grade semanal). O alpha
+        # de curvatura é lento; o Δκ de 1 semana é ruído. Ver settings.signal.
+        self.gds_smoothing_span = get("signal", "gds_smoothing_span", 1)
+
         self.constructor  = PortfolioConstructor()
         self.cost_model   = TransactionCostModel()
 
@@ -109,6 +118,12 @@ class WalkForwardBacktest:
         -------
         Lista de WalkForwardFold com resultados por janela de teste.
         """
+        # Suavização EWMA causal do GDS (look-ahead safe: ewm só olha p/ trás).
+        # Feita ANTES do fold p/ que cada teste herde o histórico suavizado.
+        if self.gds_smoothing_span and self.gds_smoothing_span > 1:
+            gds_ts = gds_ts.ewm(span=self.gds_smoothing_span, adjust=False).mean()
+            logger.info(f"GDS suavizado: EWMA span={self.gds_smoothing_span}")
+
         folds = self._get_folds(returns.index)
         logger.info(f"Walk-forward: {len(folds)} folds × {self.test_months} meses de teste")
 
@@ -132,6 +147,11 @@ class WalkForwardBacktest:
                 logger.warning(f"Fold {fold_id}: GDS vazio no período de teste.")
                 continue
 
+            # 1b. Reamostrar para a frequência de rebalanceamento (mensal).
+            # Negociar o sinal mensal no horizonte em que ele tem poder
+            # preditivo (h≈21), em vez de a cada data semanal de GDS.
+            gds_test = self._subsample_rebalance(gds_test)
+
             # 2. Construir pesos no período de teste
             eligible_test = None
             if eligible_universe is not None:
@@ -140,7 +160,9 @@ class WalkForwardBacktest:
                     if test_start <= d <= test_end
                 }
 
-            weights = self.constructor.build_weights_series(gds_test, eligible_test)
+            weights = self.constructor.build_weights_series(
+                gds_test, eligible_test, returns=returns
+            )
 
             if weights.empty:
                 logger.warning(f"Fold {fold_id}: pesos vazios.")
@@ -190,6 +212,72 @@ class WalkForwardBacktest:
         self._check_sprint5_gate(results)
 
         return results
+
+    # ──────────────────────────────────────────────────────────────
+    # CAMINHO CONTÍNUO (sem artefato de recompra por fold)
+    # ──────────────────────────────────────────────────────────────
+    def run_continuous(
+        self,
+        returns: pd.DataFrame,
+        gds_ts: pd.DataFrame,
+        prices: pd.DataFrame,
+        eligible_universe: Optional[dict[pd.Timestamp, list[str]]] = None,
+    ) -> dict[str, pd.Series]:
+        """
+        Backtest em UMA passada contínua sobre todo o OOS.
+
+        Por que existe: o sinal GDS é causal e NÃO há modelo treinado por fold
+        (o "treino" só garante histórico mínimo). Logo, recortar em folds
+        sobrepostos e cobrar custo de transação no início de CADA fold
+        equivale a recomprar o book inteiro a cada `step_months` — um custo
+        que não existe ao vivo, onde a posição é carregada. Aqui o book é
+        construído uma vez, com hysteresis contínua, e o custo é cobrado só
+        sobre o turnover REAL entre rebalanceamentos consecutivos.
+
+        Retorna {"gross": ..., "net": ..., "weights": ...} (este último o
+        DataFrame de pesos por data de rebalanceamento, p/ diagnóstico/custo).
+        """
+        if self.gds_smoothing_span and self.gds_smoothing_span > 1:
+            gds_ts = gds_ts.ewm(span=self.gds_smoothing_span, adjust=False).mean()
+
+        gds_oos = gds_ts.loc[gds_ts.index >= self.oos_start]
+        gds_oos = self._subsample_rebalance(gds_oos)
+        if gds_oos.empty:
+            raise RuntimeError("GDS vazio no período OOS após reamostragem.")
+
+        weights = self.constructor.build_weights_series(
+            gds_oos, eligible_universe, returns=returns
+        )
+
+        gross = self._compute_gross_returns(returns, weights)
+        gross = gross.loc[gross.index >= weights.index[0]]
+        net = self.cost_model.apply(gross, weights, prices)
+
+        return {"gross": gross, "net": net, "weights": weights}
+
+    def fold_summary_from_series(self, net: pd.Series) -> pd.DataFrame:
+        """
+        Métricas por janela (mesmas datas dos folds) recortadas da série
+        contínua de retornos líquidos — sem o artefato de recompra por fold.
+        Serve só para inspecionar a estabilidade do sinal no tempo.
+        """
+        rows = []
+        for i, (_, _, test_start, test_end) in enumerate(self._get_folds(net.index), 1):
+            seg = net.loc[test_start:test_end]
+            if seg.empty:
+                continue
+            pm = PerformanceMetrics(seg)
+            rows.append({
+                "fold":          i,
+                "teste_inicio":  test_start.date(),
+                "teste_fim":     test_end.date(),
+                "sharpe":        round(pm.sharpe_ratio(), 4),
+                "retorno_anual": round(pm.annualized_return(), 4),
+                "max_drawdown":  round(pm.max_drawdown(), 4),
+                "win_rate":      round(pm.win_rate(), 4),
+                "n_dias":        len(seg),
+            })
+        return pd.DataFrame(rows).set_index("fold")
 
     # ──────────────────────────────────────────────────────────────
     # CONSOLIDAÇÃO DE RESULTADOS
@@ -243,6 +331,33 @@ class WalkForwardBacktest:
     # ──────────────────────────────────────────────────────────────
     # UTILITÁRIOS PRIVADOS
     # ──────────────────────────────────────────────────────────────
+    def _subsample_rebalance(self, gds_test: pd.DataFrame) -> pd.DataFrame:
+        """
+        Reduz a grade de GDS à frequência de rebalanceamento.
+
+        O GDS é estimado semanalmente, mas o alpha só vive em h≈21 (mensal).
+        Rebalancear a cada GDS semanal quadruplica o turnover para perseguir
+        ruído (h=1,5,10 são nulos). Aqui mantemos apenas a ÚLTIMA data de
+        GDS de cada período — o sinal mais fresco disponível, look-ahead
+        safe (usa só dados ≤ data escolhida).
+
+        - "monthly": última data de GDS de cada mês-calendário.
+        - "weekly"/"daily": sem reamostragem (GDS já é semanal).
+        """
+        freq = (self.rebalance_frequency or "monthly").lower()
+        if freq not in ("monthly", "month", "m"):
+            return gds_test
+        if gds_test.empty:
+            return gds_test
+
+        # Última data observada por mês-calendário (sinal mais recente do mês)
+        keep = (
+            gds_test.index.to_series()
+            .groupby([gds_test.index.year, gds_test.index.month])
+            .max()
+        )
+        return gds_test.loc[gds_test.index.isin(keep.values)]
+
     def _get_folds(
         self,
         date_index: pd.DatetimeIndex,

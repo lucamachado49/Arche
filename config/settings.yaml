@@ -41,13 +41,54 @@ signal:
   ic_min_mean: 0.03                  # IC médio mínimo em pelo menos 2 horizontes
   ic_min_ir: 0.30                    # IC_IR (IC / std(IC)) mínimo
   ic_min_pct_positive: 0.55         # % de períodos com IC > 0
+  # Convenção de sinal — ÚNICA fonte de verdade do lado do book.
+  #   alpha_score = signal_sign · GDS   (maior score ⇒ candidato a LONG)
+  # O IC cross-seccional realizado é IC(GDS, retorno_futuro) = +0.047 em
+  # BR h=21 (t_NW=4.74, p_perm=0.001): GDS ALTO prevê retorno ALTO. Logo,
+  # para ficar consistente com os dados, long no GDS alto ⇒ signal_sign=+1.
+  # (A tese original de "reversão" — long no GDS baixo — é signal_sign=-1 e
+  #  é rejeitada pelo sinal do IC. Trave este valor ANTES de ver o OOS.)
+  signal_sign: 1
+  # Suavização EWMA (causal) do GDS antes de rankear, em nº de períodos da
+  # grade do sinal (semanal). O Δκ de 1 semana é dominado por rewiring da
+  # MST; o alpha de curvatura é LENTO (~1 trimestre). Suavizar ~quase dobra
+  # o Sharpe bruto (0.23→0.48) e o platô 12–26 é robusto. 20 ≈ 1 trimestre,
+  # consistente com h*=21d. span=1 desliga. Ver scripts/diag_tier1.
+  gds_smoothing_span: 20
 
 # ─── Portfólio ─────────────────────────────────────────────────
 portfolio:
-  n_quantiles: 5                     # número de quintis (long = Q1, short = Q5)
-  rebalance_frequency: "weekly"      # "daily" | "weekly" | "monthly"
+  n_quantiles: 5                     # número de quintis
+  # Reamostragem do rebalanceamento. O GDS é estimado semanalmente (mais
+  # dados p/ σ), mas o sinal só tem poder preditivo em h≈21 (mensal) — os
+  # horizontes h=1,5,10 são nulos. Negociar semanalmente paga custo p/
+  # perseguir ruído (turnover ~4× inflado). Rebalance mensal casa o trade
+  # com o horizonte do alpha. Ver WalkForwardBacktest._subsample_rebalance.
+  rebalance_frequency: "monthly"     # "daily" | "weekly" | "monthly"
   max_weight_single_asset: 0.15      # peso máximo por ativo (diversificação)
   long_short_ratio: 1.0              # 1.0 = market-neutral
+  # Construção de pesos (decidido por diagnóstico controlado — scripts/diag_tier1):
+  #   "quintile" — long/short nos quintis extremos do score. VENCEDOR: o alpha
+  #                 do GDS é concentrado nas CAUDAS. Espalhar peso pelo
+  #                 cross-section ("zscore") ou rotacionar por risco ("mv")
+  #                 DESTRÓI o sinal bruto (Sharpe vira negativo) — a Σ de 60d
+  #                 é ruído demais e carrega onde o GDS é fraco.
+  #   "zscore"   — peso ∝ z-score do alpha em todo o cross-section (rejeitado)
+  #   "mv"       — mean-variance w ∝ Σ⁻¹·α via Ledoit-Wolf (rejeitado p/ este
+  #                 sinal; mantido como opção p/ sinais futuros mais densos)
+  construction_method: "quintile"
+  # Banda de no-trade (unidades de peso). INERTE para este sinal: o turnover
+  # vem de nomes rotacionando a cauda inteira, não de micro-oscilações — a
+  # banda não morde. Mantida no código p/ sinais mais persistentes. Ver
+  # scripts/diag_tier1 e o gargalo de custo/turnover do engine.
+  no_trade_band: 0.0
+  # Hysteresis no ranking (entra no top `entry_quantile`, só sai abaixo do top
+  # `exit_quantile`, mais largo). TESTADA E REJEITADA p/ este sinal: corta
+  # turnover (1.34→1.11) mas derruba o bruto (0.49→0.17) — segurar nome
+  # obsoleto na cauda destrói o alpha LENTO mais rápido do que economiza
+  # custo. exit=entry desliga (quintil puro = vencedor). Ver scripts/diag_tier1.
+  entry_quantile: 0.20               # = 1/n_quantiles (cauda de entrada)
+  exit_quantile: 0.20                # = entry ⇒ hysteresis desligada
 
 # ─── Custos de Transação (diferenciados por grupo) ─────────────
 costs:
