@@ -1,0 +1,381 @@
+<title>Arche — Relatório Técnico</title>
+<style>
+  :root{
+    --obsidian:#0B0D10;
+    --panel:#12151C;
+    --panel-2:#171A21;
+    --line:rgba(201,161,90,0.22);
+    --line-soft:rgba(242,239,230,0.10);
+    --ivory:#F2EFE6;
+    --ivory-dim:rgba(242,239,230,0.74);
+    --ivory-faint:rgba(242,239,230,0.48);
+    --gold:#C9A15A;
+    --gold-bright:#D8B677;
+    --gold-faint:rgba(201,161,90,0.12);
+    --pass:#6FA98E;
+    --warn:#D0A24C;
+    --fail:#B65C52;
+    --serif:'Cinzel','Trajan Pro',Georgia,'Times New Roman',serif;
+    --sans:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--obsidian);color:var(--ivory-dim);
+    font-family:var(--sans);font-size:16px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:72px 26px 96px}
+  ::selection{background:rgba(201,161,90,0.28);color:var(--ivory)}
+
+  /* ---------- masthead ---------- */
+  .masthead{text-align:center;padding-bottom:26px;border-bottom:1px solid var(--line)}
+  .mark{width:76px;height:76px;margin:0 auto 22px;display:block;opacity:0;animation:rise .9s .05s ease forwards}
+  .wordmark{
+    font-family:var(--serif);font-size:clamp(2.4rem,8vw,3.6rem);font-weight:600;
+    letter-spacing:.28em;color:var(--ivory);margin:0 0 0 .28em;text-wrap:balance;
+    opacity:0;animation:rise .9s .15s ease forwards;
+  }
+  .subtitle{font-family:var(--serif);font-style:italic;font-size:1.02rem;color:var(--gold);
+    letter-spacing:.02em;margin:10px 0 0;opacity:0;animation:rise .9s .28s ease forwards}
+  .eyebrow{font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);font-weight:600}
+  .masthead .meta{font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ivory-faint);margin-top:20px;opacity:0;animation:rise .9s .4s ease forwards}
+
+  /* ---------- rule + dot ---------- */
+  .rule{display:flex;align-items:center;gap:14px;margin:26px 0}
+  .rule::before,.rule::after{content:"";height:1px;background:var(--line);flex:1}
+  .rule i{width:5px;height:5px;background:var(--gold);transform:rotate(45deg);flex:none}
+
+  /* ---------- stat tiles ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:30px 0 8px}
+  .tile{background:var(--panel);border:1px solid var(--line);padding:16px 14px}
+  .tile .k{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:8px}
+  .tile .v{font-family:var(--serif);font-size:1.32rem;color:var(--ivory);font-variant-numeric:tabular-nums;line-height:1.1}
+  .tile .s{font-size:.74rem;color:var(--ivory-faint);margin-top:4px}
+
+  /* ---------- sections ---------- */
+  section{margin-top:52px}
+  h2{font-family:var(--serif);font-size:1.5rem;font-weight:600;letter-spacing:.05em;
+    color:var(--ivory);margin:8px 0 4px;text-wrap:balance}
+  h3{font-family:var(--sans);font-size:1.02rem;font-weight:600;letter-spacing:.01em;
+    color:var(--gold-bright);margin:26px 0 6px}
+  p{margin:12px 0;max-width:66ch}
+  strong{color:var(--ivory);font-weight:600}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold-faint)}
+  a:hover{border-color:var(--gold)}
+  .lead{font-size:1.05rem;color:var(--ivory-dim)}
+
+  /* ---------- callout ---------- */
+  .callout{background:linear-gradient(180deg,var(--panel),var(--obsidian));
+    border:1px solid var(--line);border-left:2px solid var(--gold);padding:22px 24px;margin:22px 0}
+  .callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}
+
+  /* ---------- tables ---------- */
+  .tbl{overflow-x:auto;margin:20px 0;border:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+  thead th{background:var(--panel-2);color:var(--gold);font-weight:600;
+    font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--line)}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(201,161,90,0.04)}
+  td:first-child{color:var(--ivory-dim)}
+  .num{text-align:right}
+  .hl{color:var(--gold-bright);font-weight:600}
+  .neg{color:var(--fail)}
+  .pos{color:var(--pass)}
+
+  /* ---------- pills ---------- */
+  .pill{display:inline-block;font-size:.68rem;font-weight:600;letter-spacing:.04em;
+    padding:2px 9px;border:1px solid;border-radius:2px;white-space:nowrap}
+  .pill.ok{color:var(--pass);border-color:rgba(111,169,142,0.5);background:rgba(111,169,142,0.10)}
+  .pill.mid{color:var(--warn);border-color:rgba(208,162,76,0.5);background:rgba(208,162,76,0.10)}
+  .pill.no{color:var(--fail);border-color:rgba(182,92,82,0.5);background:rgba(182,92,82,0.10)}
+
+  /* ---------- lists ---------- */
+  ol,ul{max-width:66ch;padding-left:22px}
+  li{margin:7px 0}
+  li::marker{color:var(--gold)}
+
+  /* ---------- code ---------- */
+  pre{background:var(--panel);border:1px solid var(--line);padding:18px 20px;overflow-x:auto;
+    font-size:.82rem;line-height:1.7;color:var(--ivory-dim);margin:18px 0}
+  code{font-family:'SF Mono',Consolas,'Roboto Mono',monospace}
+  .cmt{color:var(--gold);opacity:.75}
+
+  .note{font-size:.85rem;color:var(--ivory-faint);font-style:italic}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--line);text-align:center}
+  footer .tag{font-size:.7rem;letter-spacing:.26em;text-transform:uppercase;color:var(--gold)}
+  footer .coord{font-size:.66rem;letter-spacing:.18em;color:var(--ivory-faint);margin-top:10px;
+    font-variant-numeric:tabular-nums}
+
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  @media (max-width:560px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .wrap{padding:48px 18px 72px}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <svg class="mark" viewBox="0 0 80 80" fill="none" stroke="#C9A15A" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="40" cy="43" r="33" stroke-opacity="0.38" stroke-width="1"/>
+      <path d="M40 11 L40 67" stroke-opacity="0.3" stroke-width="1"/>
+      <path d="M40 13 L23 67 M40 13 L57 67" stroke-width="1.6"/>
+      <path d="M30 49 L50 49" stroke-width="1.6"/>
+      <path d="M40 7 L45 13 L40 19 L35 13 Z" fill="#C9A15A" stroke="none"/>
+      <circle cx="23" cy="67" r="2.4" fill="#C9A15A" stroke="none"/>
+      <circle cx="57" cy="67" r="2.4" fill="#C9A15A" stroke="none"/>
+    </svg>
+    <h1 class="wordmark">ARCHE</h1>
+    <p class="subtitle">Antes do preço, a geometria.</p>
+    <p class="meta">Relatório Técnico &nbsp;·&nbsp; Desafio Quant AI 2026 &nbsp;·&nbsp; Itaú Asset</p>
+  </header>
+
+  <p class="eyebrow" style="margin-top:34px">A pergunta</p>
+  <h2 style="margin-top:6px">A curvatura de Ricci carrega alpha explorável na B3?</h2>
+  <p class="lead">Um estudo de validação com falha honesta — os testes que fizemos, onde
+  engasgamos, a aparada do COVID, e por que o modelo não passou nos gates de lucratividade.</p>
+
+  <div class="stats">
+    <div class="tile"><span class="k">Bruto OOS</span><span class="v">+6,75<span style="font-size:.9rem">%a.a.</span></span><span class="s">Sharpe 0,49 · t 1,18</span></div>
+    <div class="tile"><span class="k">Líquido</span><span class="v neg" style="color:var(--fail)">−3,7<span style="font-size:.9rem">%a.a.</span></span><span class="s">Sharpe −0,15</span></div>
+    <div class="tile"><span class="k">Peso de 2020</span><span class="v hl">122%</span><span class="s">do P&amp;L vitalício</span></div>
+    <div class="tile"><span class="k">Ortogonal a fatores</span><span class="v">R²&lt;7%</span><span class="s">α t=0,68 (ns)</span></div>
+  </div>
+
+  <section>
+    <p class="eyebrow">Resumo</p>
+    <div class="callout">
+      <p>Perguntamos: existe informação escondida na <strong>forma como os ativos se relacionam entre
+      si</strong> — e não só no preço de cada um? Para medir essa "forma" usamos a <strong>curvatura de
+      Ricci</strong>, uma ferramenta da geometria. Montamos a estratégia inteira e a testamos com o
+      mesmo ceticismo de uma mesa profissional.</p>
+      <p>O sinal <strong>é real e traz informação nova</strong> — 95% do que ele diz não é explicado
+      pelos fatores já conhecidos do mercado. <strong>Mas</strong> ele é <strong>fraco demais para pagar
+      os custos de operar</strong>, e quase todo o ganho histórico veio de <strong>um único ano: 2020
+      (a crise da COVID)</strong>. Ou seja: sozinho não vira produto — mas é um resultado de pesquisa
+      sólido e honesto. Nosso valor está no <strong>método</strong>, não em um retorno maquiado.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">01 · Hipótese &amp; método</p>
+    <h2>O mercado como objeto geométrico</h2>
+    <p>Pense no mercado como um <strong>oceano</strong>, não como ondas isoladas. A VALE3 não se move
+    sozinha — ela "dança" com o dólar, o minério e os bancos. A maioria dos modelos olha uma onda de
+    cada vez; o Arche mede o <strong>oceano inteiro</strong>: a rede de relações entre os ativos.</p>
+    <p>Nessa rede, a <strong>curvatura</strong> diz se dois ativos estão "grudados" (andam sempre
+    juntos — frágil) ou "soltos" (trazem informação diferente). Nossa aposta: quando um ativo
+    <strong>se solta de repente</strong> da sua vizinhança natural, o mercado ainda não percebeu — e
+    isso tende a se corrigir. Essa "soltura repentina" é o nosso sinal, o <strong>GDS</strong>.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Item</th><th>Escolha</th></tr></thead>
+      <tbody>
+        <tr><td>Universo</td><td>Ações líquidas B3 (IBrX-100), 87 ativos, volume &gt; R$5 mi/dia</td></tr>
+        <tr><td>Período</td><td>2013–2024; out-of-sample a partir de 2019</td></tr>
+        <tr><td>Grafo</td><td>Janela 60d → distância √(2(1−ρ)) → MST + arestas fortes</td></tr>
+        <tr><td>Curvatura</td><td>Ollivier-Ricci por aresta (transporte ótimo); κᵢ = média nodal</td></tr>
+        <tr><td>Sinal</td><td>GDS = variação padronizada de κᵢ</td></tr>
+        <tr><td>Portfólio</td><td>Quintil long-short market-neutral</td></tr>
+        <tr><td>Backtest</td><td>Walk-forward, líquido de custos B3 (13–22 bps + ~3% aluguel)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <p class="eyebrow">02 · A jornada</p>
+    <h2>Reconciliação — de bugs a um bruto honesto</h2>
+    <p>A primeira surpresa: o resultado inicial estava <strong>errado por causa de bugs</strong>.
+    Corrigi-los mudou tudo. Na tabela, <em>bruto</em> é antes dos custos de operar e <em>líquido</em> é
+    depois; o <em>Sharpe</em> mede retorno ajustado ao risco (quanto maior, melhor; abaixo de zero é
+    ruim).</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Versão do modelo</th><th class="num">Sharpe bruto</th><th class="num">Sharpe líq.</th><th class="num">Ret. líq. a.a.</th></tr></thead>
+      <tbody>
+        <tr><td>Inicial — sinal invertido + semanal</td><td class="num neg">−0,66</td><td class="num neg">−3,93</td><td class="num neg">−46,8%</td></tr>
+        <tr><td>Correção do sinal + rebalance mensal</td><td class="num pos">+0,22</td><td class="num neg">−0,63</td><td class="num neg">−8,9%</td></tr>
+        <tr><td>+ Suavização EWMA (sinal lento)</td><td class="num pos">+0,48</td><td class="num neg">−0,18</td><td class="num neg">−3,8%</td></tr>
+        <tr><td><strong>+ Engine contínuo (final)</strong></td><td class="num hl">+0,49</td><td class="num neg">−0,15</td><td class="num neg">−3,7%</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <p class="eyebrow">03 · Onde engasgamos</p>
+    <h2>Os pontos de falha</h2>
+    <ol>
+      <li><strong>Sinal invertido.</strong> O book comprava o quintil de <em>menor</em> retorno esperado. A correção levou o bruto de −0,66 a +0,22.</li>
+      <li><strong>Operar demais destrói o ganho.</strong> Estávamos rebalanceando toda semana um sinal que só se move uma vez por mês — pagando 4× mais custo à toa. Passar para mensal resolveu o pior.</li>
+      <li><strong>Quanto mais "sofisticado", pior.</strong> Tentar distribuir o peso entre todos os ativos ou otimizar por risco <strong>piorou</strong> o resultado. O sinal só funciona nos <strong>extremos</strong>; a receita simples (comprar o topo, vender a base) é a melhor.</li>
+      <li><strong>Truques para operar menos não ajudaram.</strong> Filtros para reduzir o giro do portfólio ou não faziam efeito, ou cortavam o custo mas matavam o sinal junto.</li>
+      <li><strong>No fim, o problema é a força do sinal.</strong> Ele acerta o ranking só um pouquinho acima do acaso — fraco demais para pagar os custos da B3, e nenhuma engenharia de portfólio conserta isso.</li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">04 · O teste decisivo</p>
+    <h2>A aparada do COVID</h2>
+    <p>Desconfiamos que um sinal baseado em correlações teria todo o ganho no choque da COVID em 2020
+    (quando as correlações do mercado explodiram). A conta confirmou, de forma brutal:</p>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+      <div class="tile"><span class="k">2020 sozinho</span><span class="v hl">122%</span><span class="s">do retorno acumulado</span></div>
+      <div class="tile"><span class="k">Sem 2020 (cheia)</span><span class="v neg" style="color:var(--fail)">−0,6%</span><span class="s">a.a. · t −0,13</span></div>
+      <div class="tile"><span class="k">OOS sem 2020</span><span class="v">+2,0%</span><span class="s">a.a. · t 0,33</span></div>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Ano</th><th class="num">Ret. bruto a.a.</th><th class="num">t</th></tr></thead>
+      <tbody>
+        <tr><td>2013–2017</td><td class="num neg">todos negativos</td><td class="num">—</td></tr>
+        <tr><td>2018</td><td class="num pos">+18,2%</td><td class="num">1,17</td></tr>
+        <tr><td>2019</td><td class="num pos">+19,1%</td><td class="num">1,51</td></tr>
+        <tr><td><strong>2020</strong></td><td class="num hl">+35,3%</td><td class="num">1,38</td></tr>
+        <tr><td>2021</td><td class="num pos">+4,2%</td><td class="num">0,28</td></tr>
+        <tr><td>2022</td><td class="num neg">−16,9%</td><td class="num">−1,19</td></tr>
+        <tr><td>2023</td><td class="num pos">+7,3%</td><td class="num">0,53</td></tr>
+        <tr><td>2024</td><td class="num neg">−3,4%</td><td class="num">−0,30</td></tr>
+      </tbody>
+    </table></div>
+    <p>Sem 2020, a estratégia é flat-a-negativa. E ela <strong>falhou nas outras deslocações</strong>
+    (pior ano = 2015, −17,6%; 2022, −16,9%) — logo, não é nem um hedge de cauda confiável. A
+    <em>breadth</em> de 2014–2017 era saudável (~57–61 nomes): os anos negativos são reais, não ruído.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">05 · Genuíno, mas fraco</p>
+    <h2>Ortogonalidade a fatores</h2>
+    <p>A pergunta que a banca do Itaú sempre faz: "isso é <strong>informação nova</strong> (alpha) ou só
+    um <strong>fator conhecido disfarçado</strong> (beta)?" Testamos o sinal contra os suspeitos de
+    sempre — mercado, reversão, momentum e baixa volatilidade:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Amostra</th><th class="num">α ajustado (a.a.)</th><th class="num">t (NW)</th><th class="num">R²</th></tr></thead>
+      <tbody>
+        <tr><td>OOS 2019–24</td><td class="num">+9,36%</td><td class="num">1,29</td><td class="num">0,069</td></tr>
+        <tr><td>Cheia 2013–24</td><td class="num">+3,27%</td><td class="num">0,68</td><td class="num">0,041</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Boa notícia:</strong> 95% do sinal <em>não</em> é explicado por esses fatores — é
+    informação genuinamente nova. <strong>Má notícia:</strong> mesmo assim ele é fraco demais para ser
+    considerado confiável (poderia ser sorte), e desaparece sem 2020.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">06 · Reconstrução do sinal</p>
+    <h2>Melhora o IC, não a economia</h2>
+    <p>O sinal media a mudança de curvatura em <strong>1 semana</strong> — cedo demais, muito ruído.
+    Testamos janelas maiores. O "IC" abaixo mede o quanto o sinal <strong>acerta o ranking</strong> dos
+    ativos (0 = acaso; quanto maior, melhor):</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Definição do sinal</th><th class="num">IC</th><th class="num">t</th><th class="num">IC ex-2020</th><th class="num">t ex-2020</th></tr></thead>
+      <tbody>
+        <tr><td>Δκ 1 semana (atual)</td><td class="num">+0,0106</td><td class="num">1,83</td><td class="num">+0,0072</td><td class="num">1,20</td></tr>
+        <tr><td><strong>Δκ 4 semanas (≈ h*=21)</strong></td><td class="num hl">+0,0176</td><td class="num hl">3,02</td><td class="num hl">+0,0129</td><td class="num hl">2,22</td></tr>
+        <tr><td>Δκ 8 / 12 semanas</td><td class="num neg" colspan="4">fracos a negativos</td></tr>
+      </tbody>
+    </table></div>
+    <p>Medir em <strong>4 semanas</strong> quase dobra a qualidade do sinal e é a <strong>única versão
+    que continua confiável mesmo tirando 2020</strong> — um achado de verdade. Mas, na hora de operar,
+    o retorno <strong>não melhora</strong>: a melhora acontece no "meio" dos ativos, não nos extremos
+    que a estratégia de fato compra e vende.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">07 · O pivô, também refutado</p>
+    <h2>Ricci como monitor de risco?</h2>
+    <p>Se não serve para escolher ações, será que a geometria <strong>avisa quando o mercado vai ficar
+    perigoso</strong>? Testamos a curvatura média do mercado como alarme de risco.</p>
+    <ul>
+      <li>À primeira vista funciona: a curvatura média <strong>prevê a volatilidade futura</strong> (correlação forte, ρ = 0,33).</li>
+      <li>Mas, numa comparação justa, ela <strong>não acrescenta nada</strong> além do que a própria volatilidade recente já dizia — é um jeito caro de medir algo simples.</li>
+      <li>Um alarme feito só com <strong>volatilidade comum</strong> protege mais o portfólio (menos perda, melhor retorno) do que o alarme baseado em curvatura.</li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="eyebrow">08 · Veredito dos gates</p>
+    <h2>Por que "não passou"</h2>
+    <p>Antes de começar, definimos <strong>metas de aprovação</strong> (gates) — critérios objetivos que
+    a estratégia teria que bater. Isso nos impede de "mover a trave" depois de ver o resultado. O placar:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Meta (definida no início)</th><th>Alvo</th><th>Resultado</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Look-ahead</td><td>100%</td><td>34/34 testes</td><td><span class="pill ok">✓ passou</span></td></tr>
+        <tr><td>IC do sinal</td><td>&gt;0,03 em ≥2 horizontes</td><td>0,047 em h=21 (1 robusto)</td><td><span class="pill mid">parcial</span></td></tr>
+        <tr><td>Sharpe líquido</td><td>&gt;0,5</td><td>−0,15</td><td><span class="pill no">✗ falhou</span></td></tr>
+        <tr><td>α pós-fatores</td><td>t&gt;2,0</td><td>t = 0,68–1,29</td><td><span class="pill no">✗ falhou</span></td></tr>
+      </tbody>
+    </table></div>
+    <p>O modelo <strong>funciona</strong> — roda ponta-a-ponta, é look-ahead-safe e honesto — mas
+    <strong>não atinge os gates de lucratividade/significância</strong>, porque o sinal, embora real e
+    ortogonal, é fraco e concentrado em um regime.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">09 · Esforço</p>
+    <h2>Cronograma &amp; esforço</h2>
+    <p>O pipeline base (dados → grafo → curvatura → sinal → backtest) foi construído como fundação do
+    projeto. A <strong>validação completa</strong> — correção de bugs, reconstrução do engine e as 9
+    bancadas de diagnóstico — foi feita em <strong>~2–3 dias de trabalho intensivo</strong>, em
+    <em>pair</em> entre a equipe e a IA generativa.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Fase</th><th>Escopo</th></tr></thead>
+      <tbody>
+        <tr><td>0–1 · Dados</td><td>Universo B3, limpeza, filtro de liquidez, gate de look-ahead</td></tr>
+        <tr><td>2 · Grafo</td><td>MST + arestas fortes, clusters setoriais</td></tr>
+        <tr><td>3 · Curvatura</td><td>Ollivier-Ricci (EMD), κᵢ nodal, checagem de sanidade</td></tr>
+        <tr><td>4 · Sinal</td><td>GDS, IC por horizonte, permutação</td></tr>
+        <tr><td>5 · Portfólio</td><td>Quintil L/S, custos diferenciados, walk-forward</td></tr>
+        <tr><td><strong>6 · Validação</strong></td><td><strong>9 bancadas de diagnóstico; dezenas de configurações de backtest</strong></td></tr>
+      </tbody>
+    </table></div>
+    <p>Executar uma auditoria de nível institucional — 9 experimentos independentes, dezenas de
+    configurações — nesse prazo só foi possível com a IA como <em>par de pesquisa</em>: geração e
+    depuração de código, desenho dos testes de viés e análise crítica. Tudo reprodutível via
+    <code>python -m scripts.diag_*</code>.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">10 · Conclusão</p>
+    <h2>Um resultado correto, não um fracasso</h2>
+    <div class="callout">
+      <p>A curvatura de Ollivier-Ricci na B3, neste dataset, carrega informação cross-seccional
+      <strong>genuína e ortogonal</strong> aos fatores, porém <strong>fraca e concentrada no regime de
+      2020</strong> — e <strong>não explorável líquida de custos</strong> em nenhuma estrutura testada.
+      Como monitor de risco, é dominada pela volatilidade realizada.</p>
+      <p>Isto não é falha de execução: é o resultado correto, alcançado com o protocolo de ceticismo de
+      uma mesa institucional. Encontramos um sinal, derrubamos um Sharpe inflado, corrigimos um sinal
+      invertido, separamos custo de sinal, provamos ortogonalidade e atribuímos o retorno ao seu
+      verdadeiro driver.</p>
+    </div>
+    <h3>Próximos passos</h3>
+    <ol>
+      <li><strong>Dados</strong> — pesos float-cap reais do IBrX-100 e universo ampliado (~250 nomes).</li>
+      <li><strong>Sinal</strong> — Forman-Ricci, fluxo de Ricci, curvatura de nível vs. tendência lenta.</li>
+      <li><strong>Validação oficial</strong> — Fama-French 4 fatores com dados NEFIN/FEA-USP.</li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">Apêndice</p>
+    <h2>Reprodutibilidade</h2>
+    <pre><code>pip install -r requirements.txt
+pytest                                 <span class="cmt"># 34 testes; gate de look-ahead</span>
+python -m scripts.run_backtest         <span class="cmt"># pipeline completo → reports/</span>
+python -m scripts.diag_covid           <span class="cmt"># a aparada do COVID</span>
+python -m scripts.diag_orthogonality   <span class="cmt"># ortogonalidade a fatores</span>
+python -m scripts.diag_signal_recon    <span class="cmt"># reconstrução do sinal</span>
+python -m scripts.diag_stress          <span class="cmt"># monitor de risco</span></code></pre>
+    <p class="note">Todas as métricas são reproduzíveis a partir do cache de curvatura em
+    <code>data/cache/transfer/BR/</code> e dos scripts em <code>scripts/diag_*.py</code>.</p>
+  </section>
+
+  <footer>
+    <div class="rule"><i></i></div>
+    <p class="tag">First Principles · Structure · Discipline · Edge</p>
+    <p class="coord">ARCHE Quant Challenge Team &nbsp;·&nbsp; Itaú Asset 2026</p>
+  </footer>
+
+</div>
